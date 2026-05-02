@@ -1,10 +1,18 @@
 /**
- * Build-time `BASE_FRONTEND_URL` (GitHub Pages base, CDN, etc.).
- * Default `/` = same origin, site root (`/RawData/...`).
+ * Build-time public base for GitHub Pages (`BASE_FRONTEND_URL` env).
+ * Uses `__PUBLIC_BASE_FRONTEND_URL__` from `build.ts` define so Bun inlines a string;
+ * `import.meta.env?.BASE_FRONTEND_URL` is not reliably replaced and caused `/data/...`
+ * to resolve to the org site root instead of `/<repo>/data/...`.
  */
 function normalizedBase(): string {
-  const v = import.meta.env?.BASE_FRONTEND_URL;
-  const raw = typeof v === "string" ? v.trim() : "/";
+  let raw: string;
+  if (typeof __PUBLIC_BASE_FRONTEND_URL__ !== "undefined" && __PUBLIC_BASE_FRONTEND_URL__ !== "") {
+    raw = __PUBLIC_BASE_FRONTEND_URL__;
+  } else {
+    const env = import.meta.env;
+    const v = env != null ? env.BASE_FRONTEND_URL : undefined;
+    raw = typeof v === "string" ? v.trim() : "/";
+  }
   return (raw || "/").replace(/\/$/, "");
 }
 

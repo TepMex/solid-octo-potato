@@ -154,11 +154,13 @@ const result = await Bun.build({
   define: {
     "process.env.NODE_ENV": JSON.stringify("production"),
     "import.meta.env.BASE_FRONTEND_URL": JSON.stringify(baseFrontend),
+    __PUBLIC_BASE_FRONTEND_URL__: JSON.stringify(baseFrontend),
   },
   ...cliConfig,
   define: {
     "process.env.NODE_ENV": JSON.stringify("production"),
     "import.meta.env.BASE_FRONTEND_URL": JSON.stringify(baseFrontend),
+    __PUBLIC_BASE_FRONTEND_URL__: JSON.stringify(baseFrontend),
     ...(typeof cliConfig.define === "object" && cliConfig.define ? cliConfig.define : {}),
   },
   publicPath: cliConfig.publicPath ?? optionalPublicPath,
