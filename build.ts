@@ -212,13 +212,17 @@ if (existsSync(path.join(processedDir, "tasks.jsonl"))) {
     await Bun.write(manifestOut, JSON.stringify(m, null, 2));
   }
 
-  await Bun.write(path.join(outdir, ".nojekyll"), "");
-
   const precache = await buildPrecacheUrls(outdir, dataUrls, pathPrefix);
   await writeServiceWorker(outdir, precache);
   console.log(`   Precache ${precache.length} URLs (see ${path.join(outdir, "precache-manifest.json")})`);
 } else {
   console.warn("\n⚠️  Skipping exam data: processed/tasks.jsonl not found. Add it to build a full PWA bundle.\n");
+}
+
+const indexHtmlPath = path.join(outdir, "index.html");
+if (existsSync(indexHtmlPath)) {
+  await Bun.write(path.join(outdir, ".nojekyll"), "");
+  await copyFile(indexHtmlPath, path.join(outdir, "404.html"));
 }
 
 console.log(`\n✅ Build completed in ${buildTime}ms\n`);

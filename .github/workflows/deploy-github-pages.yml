@@ -29,6 +29,16 @@ jobs:
         env:
           BASE_FRONTEND_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
 
+      - name: Verify static bundle (disables Jekyll; GitHub Pages needs index.html at branch root)
+        run: |
+          test -f dist/index.html
+          test -f dist/.nojekyll
+          ls -la dist/
+
+      - name: Pages uses gh-pages branch
+        run: |
+          echo 'Set repo **Settings → Pages → Build and deployment**: Source **Deploy from a branch**, branch **gh-pages**, folder **/** (root). Do **not** use **main** or Jekyll will show README-style output when index.html is missing at that source.' >> "$GITHUB_STEP_SUMMARY"
+
       - name: Push dist to gh-pages branch
         uses: peaceiris/actions-gh-pages@v4
         with:
