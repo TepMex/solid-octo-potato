@@ -40,6 +40,8 @@ jobs:
         run: |
           test -f dist/index.html
           test -f dist/.nojekyll
+          test -f dist/data/tasks.json
+          test -f dist/manifest.webmanifest
 
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4

@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import plugin from "bun-plugin-tailwind";
 import { existsSync } from "fs";
-import { copyFile, rm } from "fs/promises";
+import { copyFile, mkdir, rm } from "fs/promises";
 import path from "path";
 import { prepareExamData } from "./scripts/prepare-exam-data";
 import { buildPrecacheUrls, writeServiceWorker } from "./scripts/write-service-worker";
@@ -183,43 +183,53 @@ console.table(outputTable);
 const buildTime = (end - start).toFixed(2);
 
 const processedDir = path.join(process.cwd(), "processed");
-if (existsSync(path.join(processedDir, "tasks.jsonl"))) {
-  console.log("\n📦 Preparing exam data and PWA service worker...\n");
-  const dataUrls = await prepareExamData(processedDir, outdir);
-  const pub = path.join(process.cwd(), "public");
-  const root = process.cwd();
-  for (const [from, to] of [
-    [path.join(pub, "manifest.webmanifest"), path.join(outdir, "manifest.webmanifest")],
-    [path.join(pub, "icon.svg"), path.join(outdir, "icon.svg")],
-    [path.join(root, "src", "logo.svg"), path.join(outdir, "logo.svg")],
-  ] as const) {
-    if (existsSync(from)) {
-      await copyFile(from, to);
-    }
-  }
+const jsonlPath = path.join(processedDir, "tasks.jsonl");
 
-  const manifestOut = path.join(outdir, "manifest.webmanifest");
-  if (pathPrefix && existsSync(manifestOut)) {
-    const raw = await Bun.file(manifestOut).text();
-    const m = JSON.parse(raw) as {
-      start_url?: string;
-      icons?: { src?: string }[];
-    };
-    m.start_url = `${pathPrefix}/`;
-    for (const icon of m.icons ?? []) {
-      if (typeof icon.src === "string" && icon.src.startsWith("/")) {
-        icon.src = `${pathPrefix}${icon.src}`;
-      }
-    }
-    await Bun.write(manifestOut, JSON.stringify(m, null, 2));
-  }
+let dataUrls: string[] = ["/data/tasks.json"];
 
-  const precache = await buildPrecacheUrls(outdir, dataUrls, pathPrefix);
-  await writeServiceWorker(outdir, precache);
-  console.log(`   Precache ${precache.length} URLs (see ${path.join(outdir, "precache-manifest.json")})`);
+if (existsSync(jsonlPath)) {
+  console.log("\n📦 Preparing exam data...\n");
+  dataUrls = await prepareExamData(processedDir, outdir);
 } else {
-  console.warn("\n⚠️  Skipping exam data: processed/tasks.jsonl not found. Add it to build a full PWA bundle.\n");
+  console.warn(
+    "\n⚠️  No processed/tasks.jsonl — writing empty tasks. Commit processed/tasks.jsonl (tracked in git) for CI/Pages data.\n",
+  );
+  await mkdir(path.join(outdir, "data"), { recursive: true });
+  await Bun.write(path.join(outdir, "data", "tasks.json"), JSON.stringify({ tasks: [] }));
 }
+
+console.log("\n📦 PWA static assets and service worker...\n");
+const pub = path.join(process.cwd(), "public");
+const root = process.cwd();
+for (const [from, to] of [
+  [path.join(pub, "manifest.webmanifest"), path.join(outdir, "manifest.webmanifest")],
+  [path.join(pub, "icon.svg"), path.join(outdir, "icon.svg")],
+  [path.join(root, "src", "logo.svg"), path.join(outdir, "logo.svg")],
+] as const) {
+  if (existsSync(from)) {
+    await copyFile(from, to);
+  }
+}
+
+const manifestOut = path.join(outdir, "manifest.webmanifest");
+if (pathPrefix && existsSync(manifestOut)) {
+  const raw = await Bun.file(manifestOut).text();
+  const m = JSON.parse(raw) as {
+    start_url?: string;
+    icons?: { src?: string }[];
+  };
+  m.start_url = `${pathPrefix}/`;
+  for (const icon of m.icons ?? []) {
+    if (typeof icon.src === "string" && icon.src.startsWith("/")) {
+      icon.src = `${pathPrefix}${icon.src}`;
+    }
+  }
+  await Bun.write(manifestOut, JSON.stringify(m, null, 2));
+}
+
+const precache = await buildPrecacheUrls(outdir, dataUrls, pathPrefix);
+await writeServiceWorker(outdir, precache);
+console.log(`   Precache ${precache.length} URLs (see ${path.join(outdir, "precache-manifest.json")})`);
 
 const indexHtmlPath = path.join(outdir, "index.html");
 if (existsSync(indexHtmlPath)) {

@@ -2,6 +2,7 @@
 .env
 __pycache__/
 *.py[cod]
-processed/
+processed/**
+!processed/tasks.jsonl
 node_modules/
 dist/
