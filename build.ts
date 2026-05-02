@@ -6,6 +6,22 @@ import path from "path";
 import { prepareExamData } from "./scripts/prepare-exam-data";
 import { buildPrecacheUrls, writeServiceWorker } from "./scripts/write-service-worker";
 
+/** Path prefix only, e.g. `/my-repo` for `https://user.github.io/my-repo`. */
+function pathnamePrefixFromBase(base: string): string {
+  const b = base.trim().replace(/\/$/, "");
+  if (!b) return "";
+  if (/^https?:\/\//i.test(b)) {
+    return new URL(b.endsWith("/") ? b : `${b}/`).pathname.replace(/\/$/, "") || "";
+  }
+  return (b.startsWith("/") ? b : `/${b}`).replace(/\/$/, "");
+}
+
+function publicPathForBun(base: string): string | undefined {
+  const p = pathnamePrefixFromBase(base);
+  if (!p) return undefined;
+  return `${p}/`;
+}
+
 if (process.argv.includes("--help") || process.argv.includes("-h")) {
   console.log(`
 🏗️  Bun Build Script
@@ -111,6 +127,8 @@ console.log("\n🚀 Starting build process...\n");
 
 const cliConfig = parseArgs();
 const outdir = cliConfig.outdir || path.join(process.cwd(), "dist");
+const baseFrontend = process.env.BASE_FRONTEND_URL?.trim() || "/";
+const pathPrefix = pathnamePrefixFromBase(baseFrontend);
 
 if (existsSync(outdir)) {
   console.log(`🗑️ Cleaning previous build at ${outdir}`);
@@ -124,6 +142,7 @@ const entrypoints = [...new Bun.Glob("**.html").scanSync("src")]
   .filter(dir => !dir.includes("node_modules"));
 console.log(`📄 Found ${entrypoints.length} HTML ${entrypoints.length === 1 ? "file" : "files"} to process\n`);
 
+const optionalPublicPath = publicPathForBun(baseFrontend);
 const result = await Bun.build({
   entrypoints,
   outdir,
@@ -131,10 +150,18 @@ const result = await Bun.build({
   minify: true,
   target: "browser",
   sourcemap: "linked",
+  ...(optionalPublicPath ? { publicPath: optionalPublicPath } : {}),
   define: {
     "process.env.NODE_ENV": JSON.stringify("production"),
+    "import.meta.env.BASE_FRONTEND_URL": JSON.stringify(baseFrontend),
   },
   ...cliConfig,
+  define: {
+    "process.env.NODE_ENV": JSON.stringify("production"),
+    "import.meta.env.BASE_FRONTEND_URL": JSON.stringify(baseFrontend),
+    ...(typeof cliConfig.define === "object" && cliConfig.define ? cliConfig.define : {}),
+  },
+  publicPath: cliConfig.publicPath ?? optionalPublicPath,
 });
 
 if (!result.success) {
@@ -168,7 +195,26 @@ if (existsSync(path.join(processedDir, "tasks.jsonl"))) {
       await copyFile(from, to);
     }
   }
-  const precache = await buildPrecacheUrls(outdir, dataUrls);
+
+  const manifestOut = path.join(outdir, "manifest.webmanifest");
+  if (pathPrefix && existsSync(manifestOut)) {
+    const raw = await Bun.file(manifestOut).text();
+    const m = JSON.parse(raw) as {
+      start_url?: string;
+      icons?: { src?: string }[];
+    };
+    m.start_url = `${pathPrefix}/`;
+    for (const icon of m.icons ?? []) {
+      if (typeof icon.src === "string" && icon.src.startsWith("/")) {
+        icon.src = `${pathPrefix}${icon.src}`;
+      }
+    }
+    await Bun.write(manifestOut, JSON.stringify(m, null, 2));
+  }
+
+  await Bun.write(path.join(outdir, ".nojekyll"), "");
+
+  const precache = await buildPrecacheUrls(outdir, dataUrls, pathPrefix);
   await writeServiceWorker(outdir, precache);
   console.log(`   Precache ${precache.length} URLs (see ${path.join(outdir, "precache-manifest.json")})`);
 } else {

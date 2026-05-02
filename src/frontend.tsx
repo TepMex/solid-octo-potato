@@ -8,11 +8,12 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { publicAssetUrl } from "./lib/public-url";
 
 if (!document.querySelector('link[rel="manifest"]')) {
   const link = document.createElement("link");
   link.rel = "manifest";
-  link.href = "/manifest.webmanifest";
+  link.href = publicAssetUrl("manifest.webmanifest");
   document.head.appendChild(link);
 }
 
@@ -40,7 +41,7 @@ function registerServiceWorker() {
     location.hostname === "127.0.0.1";
   if (!local) return;
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/service-worker.js").catch(() => {});
+    navigator.serviceWorker.register(publicAssetUrl("service-worker.js")).catch(() => {});
   });
 }
 

@@ -62,11 +62,17 @@ export function invalidateTasksCache() {
 }
 
 export function imageSearchRoots(): string[] {
-  const roots =
-    process.env.NODE_ENV === "production"
-      ? [path.join(cwd(), "dist", "images")]
-      : [path.join(cwd(), "processed"), path.join(cwd(), "processed", "images"), path.join(cwd(), "dist", "images")];
-  return roots;
+  const rootRaw = path.join(cwd(), "RawData");
+  if (process.env.NODE_ENV === "production") {
+    return [path.join(cwd(), "dist", "RawData"), rootRaw];
+  }
+  return [
+    rootRaw,
+    path.join(cwd(), "processed"),
+    path.join(cwd(), "processed", "images"),
+    path.join(cwd(), "processed", "RawData"),
+    path.join(cwd(), "dist", "RawData"),
+  ];
 }
 
 export async function resolveImageFile(filename: string): Promise<string | null> {

@@ -1,23 +1,42 @@
 import path from "path";
 
+/** Pathname prefix for GitHub Pages project sites, e.g. `/repo`. No trailing slash. */
+function withPathPrefix(pathPrefix: string, pathname: string): string {
+  const p = pathPrefix.replace(/\/$/, "");
+  if (!p) return pathname;
+  if (pathname === "/") return `${p}/`;
+  return `${p}${pathname.startsWith("/") ? pathname : `/${pathname}`}`;
+}
+
 /** URLs are pathnames starting with `/`, same origin. */
-export async function buildPrecacheUrls(distDir: string, dataUrls: string[]): Promise<string[]> {
+export async function buildPrecacheUrls(
+  distDir: string,
+  dataUrls: string[],
+  pathPrefix = "",
+): Promise<string[]> {
   const htmlPath = path.join(distDir, "index.html");
   const htmlFile = Bun.file(htmlPath);
   if (!(await htmlFile.exists())) {
     throw new Error(`Missing ${htmlPath}; run bundler first.`);
   }
   const html = await htmlFile.text();
-  const urls = new Set<string>(["/", "/index.html", "/manifest.webmanifest", "/icon.svg", ...dataUrls]);
+  const staticPaths = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg", ...dataUrls];
+  const urls = new Set<string>(staticPaths.map(u => withPathPrefix(pathPrefix, u)));
 
-  for (const m of html.matchAll(/(?:href|src)="(\.\/[^"]+)"/g)) {
-    const rel = m[1]?.replace(/^\.\//, "") ?? "";
-    if (rel) urls.add("/" + rel);
+  for (const m of html.matchAll(/(?:href|src)="([^"]+)"/g)) {
+    const href = m[1] ?? "";
+    if (!href || href.startsWith("data:")) continue;
+    if (href.startsWith("./")) {
+      const rel = href.slice(2);
+      if (rel) urls.add(withPathPrefix(pathPrefix, "/" + rel));
+    } else if (href.startsWith("/")) {
+      urls.add(href);
+    }
   }
 
   const logo = path.join(distDir, "logo.svg");
   if (await Bun.file(logo).exists()) {
-    urls.add("/logo.svg");
+    urls.add(withPathPrefix(pathPrefix, "/logo.svg"));
   }
 
   return [...urls];

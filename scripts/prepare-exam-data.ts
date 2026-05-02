@@ -1,11 +1,12 @@
 #!/usr/bin/env bun
 /**
- * Converts processed/tasks.jsonl to tasks.json, copies question JPEGs into outdir/images.
+ * Converts processed/tasks.jsonl to tasks.json, copies question JPEGs into outdir/RawData.
  *
- * Layout (place images next to tasks.jsonl before build):
+ * Layout (place images before build):
+ *   RawData/<filename>.jpg     — project root (see RAW_DATA_DIR in .env), OR
  *   processed/tasks.jsonl
  *   processed/<filename>.jpg   — same folder as jsonl, OR
- *   processed/images/<filename>.jpg
+ *   processed/images/ or processed/RawData/
  */
 import type { ExamTask, TasksPayload } from "../src/lib/exam-types";
 import { copyFile, mkdir } from "fs/promises";
@@ -33,8 +34,12 @@ function parseArgs(): { sourceDir: string; outDir: string } {
 async function resolveImagePath(sourceDir: string, filename: string): Promise<string | null> {
   const base = path.join(sourceDir, filename);
   if (await Bun.file(base).exists()) return base;
-  const nested = path.join(sourceDir, "images", filename);
-  if (await Bun.file(nested).exists()) return nested;
+  const inImages = path.join(sourceDir, "images", filename);
+  if (await Bun.file(inImages).exists()) return inImages;
+  const inProcRaw = path.join(sourceDir, "RawData", filename);
+  if (await Bun.file(inProcRaw).exists()) return inProcRaw;
+  const rootRaw = path.join(ROOT, "RawData", filename);
+  if (await Bun.file(rootRaw).exists()) return rootRaw;
   return null;
 }
 
@@ -52,9 +57,9 @@ export async function prepareExamData(sourceDir: string, outDir: string): Promis
   });
 
   const dataDir = path.join(outDir, "data");
-  const imagesDir = path.join(outDir, "images");
+  const rawDataDir = path.join(outDir, "RawData");
   await mkdir(dataDir, { recursive: true });
-  await mkdir(imagesDir, { recursive: true });
+  await mkdir(rawDataDir, { recursive: true });
 
   await Bun.write(path.join(dataDir, "tasks.json"), JSON.stringify({ tasks } satisfies TasksPayload));
 
@@ -66,8 +71,9 @@ export async function prepareExamData(sourceDir: string, outDir: string): Promis
     seen.add(t.img);
     const src = await resolveImagePath(sourceDir, t.img);
     if (src) {
-      await copyFile(src, path.join(imagesDir, path.basename(t.img)));
-      precacheUrls.push(`/images/${t.img.split("/").pop()}`);
+      await copyFile(src, path.join(rawDataDir, path.basename(t.img)));
+      const base = t.img.split("/").pop() ?? t.img;
+      precacheUrls.push(`/RawData/${base}`);
     } else {
       console.warn(`[prepare-exam-data] Missing image for task ${t.id}: ${t.img}`);
     }

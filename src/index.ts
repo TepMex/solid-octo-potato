@@ -16,6 +16,7 @@ function mimeType(filePath: string): string {
   if (filePath.endsWith(".json")) return "application/json; charset=utf-8";
   if (filePath.endsWith(".webmanifest")) return "application/manifest+json";
   if (filePath.endsWith(".map")) return "application/json; charset=utf-8";
+  if (filePath.endsWith(".jpg") || filePath.endsWith(".jpeg")) return "image/jpeg";
   return "application/octet-stream";
 }
 
@@ -62,14 +63,16 @@ const server = serve({
       }
     },
 
-    "/images/:filename": async req => {
+    "/RawData/:filename": async req => {
       const name = req.params.filename;
       const filePath = await resolveImageFile(name);
       if (!filePath) {
         return new Response("Not found", { status: 404 });
       }
+      const rel = name.replace(/^\/+/, "");
       return new Response(Bun.file(filePath), {
         headers: {
+          "Content-Type": mimeType(rel),
           "Cache-Control": "public, max-age=86400",
         },
       });

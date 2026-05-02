@@ -8,6 +8,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import type { ExamTask, TasksPayload } from "@/lib/exam-types";
+import { publicAssetUrl } from "@/lib/public-url";
 import {
   clearPersistedSession,
   countCorrect,
@@ -60,7 +61,7 @@ export function ExamApp() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/data/tasks.json");
+        const res = await fetch(publicAssetUrl("data/tasks.json"));
         const body = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(typeof body.error === "string" ? body.error : res.statusText);
         const data = body as TasksPayload;
@@ -202,7 +203,7 @@ export function ExamApp() {
             </CardTitle>
             <div className="overflow-hidden rounded-md border bg-muted/30">
               <img
-                src={`/images/${encodeURIComponent(currentTask.img)}`}
+                src={publicAssetUrl(`RawData/${encodeURIComponent(currentTask.img)}`)}
                 alt=""
                 className="mx-auto max-h-[min(420px,50vh)] w-auto max-w-full object-contain"
                 loading="lazy"
@@ -287,7 +288,7 @@ export function ExamApp() {
                           <p className="whitespace-pre-wrap text-sm font-medium">{t.question}</p>
                           <div className="overflow-hidden rounded-md border bg-muted/20">
                             <img
-                              src={`/images/${encodeURIComponent(t.img)}`}
+                              src={publicAssetUrl(`RawData/${encodeURIComponent(t.img)}`)}
                               alt=""
                               className="mx-auto max-h-40 w-auto max-w-full object-contain"
                               loading="lazy"
